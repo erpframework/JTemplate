@@ -1,3 +1,9 @@
+/************************************************
+ * 					JTemplate 					*
+ * 					CMSPP.NET					*\
+ * 				   JTemplate.js					*
+ *  	2012-8-25 3:23:12$	ZengOhm@gmail.com	*
+ ************************************************/
 function _JTemplate(){
 	this._templateStore = new Array();
 	this._dataList = null;
@@ -150,7 +156,7 @@ function _JTemplate(){
 	this._valueOutput = function()
 	{
 		var m_Name = '';
-		while(this._readChar()){
+		do{
 			if(this._scanCodeChar=='#')
 			{
 				this._readChar();
@@ -158,8 +164,7 @@ function _JTemplate(){
 				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
 			}
 			m_Name+=this._scanCodeChar;
-		}
-		return eval('this._dataList.' + m_Name);
+		}while(this._readChar());
 	};
 	
 	this._codeError = function (info)

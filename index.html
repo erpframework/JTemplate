@@ -6,7 +6,12 @@
 		<script type="text/javascript">
 			function onDocumentLoad()
 			{
-				document.body.innerHTML = $JT('TestTemplate',{startString:'Start!'});
+				document.body.innerHTML = $JT('TestTemplate',{
+					startString:'Start!',
+					fruits:new Array(
+						'Apple','Pear','Orange'
+					)
+				});
 			}
 		</script>
 	</head>
@@ -23,7 +28,7 @@
 	<# } #>
 	<ul>
 	<# for($i=0;$i<3;$i++){ #>
-		<li><# $i #></li>
+		<li><# $fruits[$i] #></li>
 	<# } #>
 	</ul>
 	This is a test!
