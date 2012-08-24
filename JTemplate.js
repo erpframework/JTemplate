@@ -1,6 +1,6 @@
 /************************************************
  * 					JTemplate 					*
- * 					CMSPP.NET					*\
+ * 					CMSPP.NET					*
  * 				   JTemplate.js					*
  *  	2012-8-25 3:23:12$	ZengOhm@gmail.com	*
  ************************************************/
@@ -165,6 +165,7 @@ function _JTemplate(){
 			}
 			m_Name+=this._scanCodeChar;
 		}while(this._readChar());
+		return this._eval(m_Name);
 	};
 	
 	this._codeError = function (info)
