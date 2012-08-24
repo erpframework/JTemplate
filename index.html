@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<title>JTemplate - Develop</title>
+		<script type="text/javascript" src="JTemplate.js"></script>
+		<script type="text/javascript">
+			function onDocumentLoad()
+			{
+				document.body.innerHTML = $JT('TestTemplate',{startString:'Start!'});
+			}
+		</script>
+	</head>
+	<body onload="onDocumentLoad();"> </body>
+<!--[TestTemplate[
+	<# $startString #>
+	<# if(true){ #>
+		Succesee!
+		<# if(true){ #>
+			S2
+		<# } #>
+	<# }else{ #>
+		Failed!
+	<# } #>
+	<ul>
+	<# for($i=0;$i<3;$i++){ #>
+		<li><# $i #></li>
+	<# } #>
+	</ul>
+	This is a test!
+]]-->
+</html>
