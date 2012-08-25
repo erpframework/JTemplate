@@ -16,6 +16,7 @@ function _JTemplate(){
 	this._scanCodeCol = 0;
 	this._codeConditionNested = 0;
 	this._codeBlockNested = 0;
+	this._EOT = false;
 	
 	this.init = function(){
 		var html = document.getElementsByTagName('html')[0].innerHTML;
@@ -48,25 +49,24 @@ function _JTemplate(){
 		this._scanCodeLine = 0;
 		this._scanCodeCol = 0;
 		/*
-		 * 0  HTML代码区
+		 * 0  HTML BLock
 		 * 1  JTemplate Code
 		 */
-		var scanCodeState = 0;
+		var scanCodeState = false;
 		var rString = '';
 		
 		while(this._readChar())
 		{
 			switch(scanCodeState)
 			{
-				case 0:
+				case false:
 					rString+=this._readHTMLBlock();
-					scanCodeState = 1;
 					break;
-				case 1:
+				case true:
 					rString+=this._readJTemplate();
-					scanCodeState = 0;
 					break;
 			}
+			scanCodeState = !scanCodeState;
 		}
 		return rString;
 	};
@@ -120,12 +120,13 @@ function _JTemplate(){
 				this._codeError('Code Block Nested Error');
 			if(this._codeConditionNested<0)
 				this._codeError('Code Condition Nested Error');			
-			
+			this._EOT = false;
 			return true;
 		}
 		else
 		{
 			this._scanCodeChar = '';
+			this._EOT = true;
 			return false;
 		}
 	};
@@ -146,7 +147,8 @@ function _JTemplate(){
 					scanCodeIndex:this._scanCodeIndex,
 					scanCodeCol:this._scanCodeCol,
 					codeConditionNested:this._codeConditionNested,
-					codeBlockNested:this._codeBlockNested
+					codeBlockNested:this._codeBlockNested,
+					scanTemplateName:this._scanTemplateName
 		};
 	};
 	
@@ -173,6 +175,41 @@ function _JTemplate(){
 			this._codeError('Unexpected code "' + evalcode + '"');
 		}
 	}
+	
+	
+	this._isJTemplateEnd_lastRunIndex = null;
+	this._isJTemplateEnd = function()
+	{
+		var nowPosition = this._tell();
+		if(this._isJTemplateEnd_lastRunIndex &&
+			this._isJTemplateEnd_lastRunIndex.scanCodeIndex == nowPosition.scanCodeIndex &&
+			this._isJTemplateEnd_lastRunIndex.scanTemplateName == nowPosition.scanTemplateName )
+			return true;
+		if(this._scanCodeChar=='#'){
+			this._readChar();
+			if(this._scanCodeChar!='>')
+				this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
+			//this._readChar();
+			this._isJTemplateEnd_lastRunIndex = this._tell();
+			return true;
+		}
+		return false;
+	}
+	
+	this._readToNextJTemplate = function()
+	{
+		var rString = this._readJTemplate();
+		this._readChar();
+		rString+= this._readHTMLBlock();
+		return rString;
+	}
+	
+	this._skipThisBlock = function()
+	{
+		var nowCodeBlockNested = this._codeBlockNested;
+		while(nowCodeBlockNested<=this._codeBlockNested)this._readChar();
+		while(!this._isJTemplateEnd())this._readChar();
+	}
 };
 
 _JTemplate.prototype._keyWord_if = function(){
@@ -194,20 +231,12 @@ _JTemplate.prototype._keyWord_if = function(){
 		{
 		case 0:
 			rWord += this._scanCodeChar;
-			if(this._codeConditionNested==0)
-			{
-				this._eval(rWord);
-				keywordIfRunState = 1;
-				rWord = "";
-			}
-			break;
+			if(this._codeConditionNested!=0)continue;
+			conditionFlag = this._eval(rWord);
+			keywordIfRunState = 1;
+			rWord = "";
 		case 1:
-			if(this._scanCodeChar=='#')
-				keywordIfRunState = 2;
-			break;
-		case 2:
-			if(this._scanCodeChar!='>')
-				this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
+			while(!this._isJTemplateEnd())this._readChar();
 			this._readChar();
 			var html = this._readHTMLBlock();
 			if(conditionFlag)
@@ -218,12 +247,7 @@ _JTemplate.prototype._keyWord_if = function(){
 			if(this._scanCodeChar==' ' || this._scanCodeChar=='}')break;
 			else keywordIfRunState=4;
 		case 4:
-			if(this._scanCodeChar=='#'){		// <#}#>
-				if(enterCodeBlockNested != this._codeBlockNested)
-					this._codeError('Code Block Nested Error');
-				this._readChar();
-				if(this._scanCodeChar!='>')
-					this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
+			if(this._isJTemplateEnd()){		// <#}#>
 				return rString;
 			}else if(this._scanCodeChar==' '){
 				break;
@@ -246,8 +270,8 @@ _JTemplate.prototype._keyWord_if = function(){
 					if(conditionFlag)
 						rString += html;
 					keywordIfRunState = 3;
-					rWord = '';
 				}
+				rWord = '';
 			}else{
 				rWord+=this._scanCodeChar;
 			}
@@ -257,79 +281,46 @@ _JTemplate.prototype._keyWord_if = function(){
 };
 
 _JTemplate.prototype._keyWord_for = function(){
-	var rWord = '';
+	var conditionString = '';
 	var rString = '';
 	var conditionArray;
-	var conditionFlag;
 	var enterCodeBlockNested = this._codeBlockNested;
 	var loopStartPosition;
 	/*
 	 * 0	Read condition
 	 * 1	Enter Loop
-	 * 2	Wait for HTMLBlock
-	 * 3	Wait for HTMLBlock End
 	 */
 	var keywordForRunState = 0;
 	do{
 		switch(keywordForRunState)
 		{
 			case 0:
-				rWord += this._scanCodeChar;
-				if(this._codeConditionNested==0)
-				{
-					conditionArray = rWord.match(/\((.*?);(.*?);(.*?)\)/);
-					if(!conditionArray)
-						this._codeError('Unexpected code "' + evalcode + '"');
-					
-					this._eval(conditionArray[1]);
-					keywordForRunState = 1;
-					rWord = "";
+				conditionString += this._scanCodeChar;
+				if(this._codeConditionNested!=0)continue;
+				conditionArray = conditionString.match(/\((.*?);(.*?);(.*?)\)/);
+				if(!conditionArray) this._codeError('Unexpected code "' + evalcode + '"');
+				this._eval(conditionArray[1]);
+				
+				while(!this._isJTemplateEnd())this._readChar();
+				if(!this._eval(conditionArray[2])){
+					this._skipThisBlock();
+					return '';
 				}
+				loopStartPosition = this._tell();
+				this._readChar();
+				rString += this._readHTMLBlock();
+				keywordForRunState = 1;
 				break;
 			case 1:
-				if(this._scanCodeChar==' ')break;
-				conditionFlag = this._eval(conditionArray[2]);
-				if(!conditionFlag)return rString;
-				keywordForRunState = 2;
-				break;
-			case 2:
-				if(this._scanCodeChar==' ')break;
-				else if(this._scanCodeChar=='#')break;
-				else if(this._scanCodeChar=='>')
-				{
-					this._readChar();
-					loopStartPosition = this._tell();
-					rString += this._readHTMLBlock();
-					keywordForRunState = 3;
-				}
-				break;
-			case 3:
-				if(this._scanCodeChar==' '){
-					break;
-				}else if(this._scanCodeChar=='#'){		// <#}#>
-					if(enterCodeBlockNested != this._codeBlockNested)
-						this._codeError('Code Block Nested Error');
-					this._readChar();
-					if(this._scanCodeChar!='>')
-						this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
+				if(this._scanCodeChar==' ')continue;
+				if(this._isJTemplateEnd()){		// <#}#>
 					this._eval(conditionArray[3]);
-					conditionFlag = this._eval(conditionArray[2]);
-					if(!conditionFlag)return rString;
-					else{
-						this._seek(loopStartPosition);
-						rString += this._readHTMLBlock();
-					}
-				}else if(this._scanCodeChar!='}'){
-					rString+= this._readJTemplate();
-					this._readChar();
-					rString+= this._readHTMLBlock();
-				}else if(this._scanCodeChar=='(' || this._scanCodeChar=='{'){  // <# if(condition){ #>
-					rString += this._keyWord(rWord);
+					if(!this._eval(conditionArray[2]))return rString;
+					this._seek(loopStartPosition);
 					this._readChar();
 					rString += this._readHTMLBlock();
-					rWord = '';
-				}else{
-					rWord+=this._scanCodeChar;
+				}else if(this._scanCodeChar!='}'){
+					rString += this._readToNextJTemplate();
 				}
 		}
 	}while(this._readChar());
@@ -338,12 +329,7 @@ _JTemplate.prototype._keyWord_for = function(){
 _JTemplate.prototype._keyWord_echo = function(){
 	var rWord = '';
 	do{
-		if(this._scanCodeChar=='#')
-		{
-				this._readChar();
-				if(this._scanCodeChar=='>')break;
-				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
-		}
+		if(this._isJTemplateEnd())break;
 		rWord+=this._scanCodeChar;
 	}while(this._readChar());
 	return this._eval(rWord);
@@ -352,12 +338,7 @@ _JTemplate.prototype._keyWord_echo = function(){
 _JTemplate.prototype._keyWord_eval = function(){
 	var rWord = '';
 	do{
-		if(this._scanCodeChar=='#')
-		{
-				this._readChar();
-				if(this._scanCodeChar=='>')break;
-				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
-		}
+		if(this._isJTemplateEnd())break;
 		rWord+=this._scanCodeChar;
 	}while(this._readChar());
 	this._eval(rWord);
@@ -365,75 +346,36 @@ _JTemplate.prototype._keyWord_eval = function(){
 }
 
 _JTemplate.prototype._keyWord_while = function(){
-	var rWord = '';
 	var rString = '';
-	var conditionString;
-	var conditionFlag;
-	var enterCodeBlockNested = this._codeBlockNested;
-	var loopStartPosition;
+	var conditionString = '';
+	var loopStartPosition = false;
 	/*
 	 * 0	Read condition
 	 * 1	Enter Loop
-	 * 2	Wait for HTMLBlock
-	 * 3	Wait for HTMLBlock End
 	 */
-	var keywordForRunState = 0;
+	var keywordWhileRunState = 0;
 	do{
-		switch(keywordForRunState)
+		switch(keywordWhileRunState)
 		{
 			case 0:
-				rWord += this._scanCodeChar;
-				if(this._codeConditionNested==0)
-				{
-					conditionString = rWord;
-					this._eval(conditionString);
-					keywordForRunState = 1;
-					rWord = "";
+				conditionString += this._scanCodeChar;
+				if(this._codeConditionNested!=0)break;
+				while(!this._isJTemplateEnd())this._readChar();
+				if(!this._eval(conditionString)){
+					this._skipThisBlock();
+					return '';
 				}
-				break;
+				loopStartPosition = this._tell();
+				keywordWhileRunState = 1;
 			case 1:
-				if(this._scanCodeChar==' ')break;
-				conditionFlag = this._eval(conditionString);
-				if(!conditionFlag)return rString;
-				keywordForRunState = 2;
-				break;
-			case 2:
-				if(this._scanCodeChar==' ')break;
-				else if(this._scanCodeChar=='#')break;
-				else if(this._scanCodeChar=='>')
-				{
+				if(this._scanCodeChar==' ')continue;
+				if(this._isJTemplateEnd()){		// <#}#>
+					if(!this._eval(conditionString))return rString;
+					this._seek(loopStartPosition);
 					this._readChar();
-					loopStartPosition = this._tell();
 					rString += this._readHTMLBlock();
-					keywordForRunState = 3;
-				}
-				break;
-			case 3:
-				if(this._scanCodeChar==' '){
-					break;
-				}else if(this._scanCodeChar=='#'){		// <#}#>
-					if(enterCodeBlockNested != this._codeBlockNested)
-						this._codeError('Code Block Nested Error');
-					this._readChar();
-					if(this._scanCodeChar!='>')
-						this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
-					conditionFlag = this._eval(conditionString);
-					if(!conditionFlag)return rString;
-					else{
-						this._seek(loopStartPosition);
-						rString += this._readHTMLBlock();
-					}
 				}else if(this._scanCodeChar!='}'){
-					rString+= this._readJTemplate();
-					this._readChar();
-					rString+= this._readHTMLBlock();
-				}else if(this._scanCodeChar=='(' || this._scanCodeChar=='{'){  // <# if(condition){ #>
-					rString += this._keyWord(rWord);
-					this._readChar();
-					rString += this._readHTMLBlock();
-					rWord = '';
-				}else{
-					rWord+=this._scanCodeChar;
+					rString += this._readToNextJTemplate();
 				}
 		}
 	}while(this._readChar());
