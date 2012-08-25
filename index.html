@@ -1,6 +1,6 @@
 <html>
 	<head>
-		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<meta http-equiv="Content-Type" content="text/html; charset=gbk" />
 		<title>JTemplate - Develop</title>
 		<script type="text/javascript" src="JTemplate.js"></script>
 		<script type="text/javascript">
@@ -8,29 +8,39 @@
 			{
 				document.body.innerHTML = $JT('TestTemplate',{
 					startString:'Start!',
-					fruits:new Array(
-						'Apple','Pear','Orange'
-					)
+					fruits:new Array('Apple','Pear','Orange')
 				});
 			}
 		</script>
 	</head>
 	<body onload="onDocumentLoad();"> </body>
 <!--[TestTemplate[
-	<# $startString #>
+	<h3>echo</h3>
+	<# echo $startString #>
+	<h4>if - else</h4>
 	<# if(true){ #>
-		Succesee!
+		True!
 		<# if(true){ #>
-			S2
+			TrueX2!
 		<# } #>
 	<# }else{ #>
-		Failed!
+		False!
 	<# } #>
+	<h3>for</h3>
 	<ul>
-	<# for($i=0;$i<3;$i++){ #>
-		<li><# $fruits[$i] #></li>
+	<# for($i=0;$i<$fruits.length;$i++){ #>
+		<li><# echo $fruits[$i] #></li>
 	<# } #>
 	</ul>
-	This is a test!
+	<h3>while</h3>
+	<ul>
+	<# while($i>0){ #>
+		<li><# echo $i #></li>
+		<# eval $i-- #>
+	<# } #>
+	</ul>
+	<h3>eval</h3>
+	<# eval $end = "This is a test!" #>
+	<# echo $end #>
 ]]-->
 </html>

@@ -2,7 +2,7 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-25 3:23:12$	ZengOhm@gmail.com	*
+ *  	2012-8-25 18:18:05$	ZengOhm@gmail.com	*
  ************************************************/
 function _JTemplate(){
 	this._templateStore = new Array();
@@ -75,11 +75,8 @@ function _JTemplate(){
 	{
 		var rWord = '';
 		do{
-			if(this._scanCodeChar==' ')continue;
-			if(this._scanCodeChar=='$'){
-				return this._valueOutput();
-			}
-			if(this._scanCodeChar=='(' || this._scanCodeChar=='{' ){
+			if(rWord == '' && this._scanCodeChar==' ')continue;
+			if(this._scanCodeChar=='(' || this._scanCodeChar=='{' || this._scanCodeChar==' '){
 				return this._keyWord(rWord);
 			}
 			rWord += this._scanCodeChar;
@@ -151,21 +148,6 @@ function _JTemplate(){
 					codeConditionNested:this._codeConditionNested,
 					codeBlockNested:this._codeBlockNested
 		};
-	};
-	
-	this._valueOutput = function()
-	{
-		var m_Name = '';
-		do{
-			if(this._scanCodeChar=='#')
-			{
-				this._readChar();
-				if(this._scanCodeChar=='>')break;
-				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
-			}
-			m_Name+=this._scanCodeChar;
-		}while(this._readChar());
-		return this._eval(m_Name);
 	};
 	
 	this._codeError = function (info)
@@ -332,6 +314,110 @@ _JTemplate.prototype._keyWord_for = function(){
 						this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
 					this._eval(conditionArray[3]);
 					conditionFlag = this._eval(conditionArray[2]);
+					if(!conditionFlag)return rString;
+					else{
+						this._seek(loopStartPosition);
+						rString += this._readHTMLBlock();
+					}
+				}else if(this._scanCodeChar!='}'){
+					rString+= this._readJTemplate();
+					this._readChar();
+					rString+= this._readHTMLBlock();
+				}else if(this._scanCodeChar=='(' || this._scanCodeChar=='{'){  // <# if(condition){ #>
+					rString += this._keyWord(rWord);
+					this._readChar();
+					rString += this._readHTMLBlock();
+					rWord = '';
+				}else{
+					rWord+=this._scanCodeChar;
+				}
+		}
+	}while(this._readChar());
+}
+
+_JTemplate.prototype._keyWord_echo = function(){
+	var rWord = '';
+	do{
+		if(this._scanCodeChar=='#')
+		{
+				this._readChar();
+				if(this._scanCodeChar=='>')break;
+				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
+		}
+		rWord+=this._scanCodeChar;
+	}while(this._readChar());
+	return this._eval(rWord);
+}
+
+_JTemplate.prototype._keyWord_eval = function(){
+	var rWord = '';
+	do{
+		if(this._scanCodeChar=='#')
+		{
+				this._readChar();
+				if(this._scanCodeChar=='>')break;
+				else this._codeError('Unknow end line "' + this._scanCodeChar + '"');
+		}
+		rWord+=this._scanCodeChar;
+	}while(this._readChar());
+	this._eval(rWord);
+	return "";
+}
+
+_JTemplate.prototype._keyWord_while = function(){
+	var rWord = '';
+	var rString = '';
+	var conditionString;
+	var conditionFlag;
+	var enterCodeBlockNested = this._codeBlockNested;
+	var loopStartPosition;
+	/*
+	 * 0	Read condition
+	 * 1	Enter Loop
+	 * 2	Wait for HTMLBlock
+	 * 3	Wait for HTMLBlock End
+	 */
+	var keywordForRunState = 0;
+	do{
+		switch(keywordForRunState)
+		{
+			case 0:
+				rWord += this._scanCodeChar;
+				if(this._codeConditionNested==0)
+				{
+					conditionString = rWord;
+					this._eval(conditionString);
+					keywordForRunState = 1;
+					rWord = "";
+				}
+				break;
+			case 1:
+				if(this._scanCodeChar==' ')break;
+				conditionFlag = this._eval(conditionString);
+				if(!conditionFlag)return rString;
+				keywordForRunState = 2;
+				break;
+			case 2:
+				if(this._scanCodeChar==' ')break;
+				else if(this._scanCodeChar=='#')break;
+				else if(this._scanCodeChar=='>')
+				{
+					this._readChar();
+					loopStartPosition = this._tell();
+					rString += this._readHTMLBlock();
+					keywordForRunState = 3;
+				}
+				break;
+			case 3:
+				if(this._scanCodeChar==' '){
+					break;
+				}else if(this._scanCodeChar=='#'){		// <#}#>
+					if(enterCodeBlockNested != this._codeBlockNested)
+						this._codeError('Code Block Nested Error');
+					this._readChar();
+					if(this._scanCodeChar!='>')
+						this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
+					conditionFlag = this._eval(conditionString);
 					if(!conditionFlag)return rString;
 					else{
 						this._seek(loopStartPosition);
