@@ -16,6 +16,14 @@ function _JTemplate(){
 	this._scanCodeCol = 0;
 	this._codeConditionNested = 0;
 	this._codeBlockNested = 0;
+	/*
+	 * 0	Free						-	When start
+	 * 1	HTML Block					-	Start with 'First HTML Char' end with '<'
+	 * 2	HTML to JTemplate border	-	When read '#' after '<'
+	 * 3	JTemplate Block				-	Start with 'First JTemplate Char' end before '#'
+	 * 4	JTemplate to HTML border	-	When read '#' and '>' after '#'
+	 */
+	this._codeState = 0;
 	this._EOT = false;
 	
 	this.init = function(){
@@ -48,25 +56,20 @@ function _JTemplate(){
 		this._scanCodeLength = this._scanCode.length;
 		this._scanCodeLine = 0;
 		this._scanCodeCol = 0;
-		/*
-		 * 0  HTML BLock
-		 * 1  JTemplate Code
-		 */
-		var scanCodeState = false;
+		this._codeState = 0;
 		var rString = '';
 		
 		while(this._readChar())
 		{
-			switch(scanCodeState)
+			switch(this._codeState)
 			{
-				case false:
+				case 1:
 					rString+=this._readHTMLBlock();
 					break;
-				case true:
+				case 3:
 					rString+=this._readJTemplate();
 					break;
 			}
-			scanCodeState = !scanCodeState;
 		}
 		return rString;
 	};
@@ -90,7 +93,6 @@ function _JTemplate(){
 		var lastWord = '';
 		do{
 			if(lastWord=='<' && this._scanCodeChar=='#')return rString;
-			
 			rString+=lastWord;
 			lastWord = this._scanCodeChar;
 		}while(this._readChar());
@@ -98,11 +100,25 @@ function _JTemplate(){
 		return rString;
 	};
 	
+	
 	this._readChar = function()
 	{
 		if(this._scanCodeIndex<this._scanCodeLength)
 		{
+			var lastChar = this._scanCodeChar;
 			this._scanCodeChar = this._scanCode.substr(this._scanCodeIndex,1);
+			
+			if(this._codeState==0)
+				this._codeState = 1;
+			else if(this._codeState==1 && lastChar=='<' && this._scanCodeChar=='#')
+				this._codeState = 2;
+			else if(this._codeState==2)
+				this._codeState = 3;
+			else if(this._codeState==3 && this._scanCodeChar=='#')
+				this._codeState = 4;
+			else if(this._codeState==4 && lastChar=='>')
+				this._codeState = 1;
+			
 			if(this._scanCodeChar == "\n")
 			{
 				this._scanCodeLine++;
@@ -112,7 +128,6 @@ function _JTemplate(){
 			else if(this._scanCodeChar == ")")this._codeConditionNested--;
 			else if(this._scanCodeChar == "{")this._codeBlockNested++;
 			else if(this._scanCodeChar == "}")this._codeBlockNested--;
-
 			this._scanCodeIndex++;
 			this._scanCodeCol++;
 			
@@ -120,15 +135,15 @@ function _JTemplate(){
 				this._codeError('Code Block Nested Error');
 			if(this._codeConditionNested<0)
 				this._codeError('Code Condition Nested Error');			
+			
 			this._EOT = false;
-			return true;
 		}
 		else
 		{
 			this._scanCodeChar = '';
 			this._EOT = true;
-			return false;
 		}
+		return !this._EOT; 
 	};
 	
 	this._seek = function(position){
@@ -208,7 +223,7 @@ function _JTemplate(){
 	{
 		var nowCodeBlockNested = this._codeBlockNested;
 		while(nowCodeBlockNested<=this._codeBlockNested)this._readChar();
-		while(!this._isJTemplateEnd())this._readChar();
+		//while(!this._isJTemplateEnd())this._readChar();
 	}
 };
 
@@ -216,13 +231,11 @@ _JTemplate.prototype._keyWord_if = function(){
 	var enterCodeBlockNested = this._codeBlockNested;
 	var rWord = '';
 	var rString = '';
-	var conditionFlag = true
+	var conditionFlag = false
 	/*
 	 * 0	Read condition
-	 * 1	Into Code Block
-	 * 2 	In Html Block
-	 * 3	End of If Block, May else or else if
-	 * 4	else or else if or #
+	 * 1	Jurge condition
+	 * 2 	Into block
 	 */
 	var keywordIfRunState = 0;
 	do
@@ -232,47 +245,40 @@ _JTemplate.prototype._keyWord_if = function(){
 		case 0:
 			rWord += this._scanCodeChar;
 			if(this._codeConditionNested!=0)continue;
-			conditionFlag = this._eval(rWord);
+			conditionFlag = !conditionFlag && this._eval(rWord);
 			keywordIfRunState = 1;
 			rWord = "";
 		case 1:
 			while(!this._isJTemplateEnd())this._readChar();
 			this._readChar();
-			var html = this._readHTMLBlock();
 			if(conditionFlag)
-				rString+=html;
-			keywordIfRunState = 3;
+				rString+=this._readHTMLBlock();			
+			else
+				this._skipThisBlock();
+			keywordIfRunState = 2;
 			break;
-		case 3:
-			if(this._scanCodeChar==' ' || this._scanCodeChar=='}')break;
-			else keywordIfRunState=4;
-		case 4:
+		case 2:
+			if(this._scanCodeChar==' ')break;
 			if(this._isJTemplateEnd()){		// <#}#>
 				return rString;
-			}else if(this._scanCodeChar==' '){
-				break;
 			}else if(this._scanCodeChar=='{'){	//  <#}else{#>
 				if(rWord=='else'){
 					conditionFlag = !conditionFlag;
 					keywordIfRunState = 1;
-				}else{
-					this._codeError('Unexpected end of line "' + this._scanCodeChar + '"');
 				}
 			}else if(this._scanCodeChar=='('){  // <#}else if(condition){#>   or <# if(condition){ #>
 				if(rWord=='elseif'){
-					conditionFlag = !conditionFlag;
 					rWord = this._scanCodeChar;
-					keywordIfRunState = 1;
-				}else{
-					var html = this._keyWord(rWord);
+					keywordIfRunState = 0;
+				}else if(conditionFlag){
+					rString += this._keyWord(rWord);
 					this._readChar();
-					html += this._readHTMLBlock();
-					if(conditionFlag)
-						rString += html;
-					keywordIfRunState = 3;
+					rString += this._readHTMLBlock();
+				}else{
+					this._skipThisBlock();
+					rWord = '';
 				}
-				rWord = '';
-			}else{
+			}else if(this._scanCodeChar!='{'){
 				rWord+=this._scanCodeChar;
 			}
 			break;
