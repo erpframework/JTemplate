@@ -2,7 +2,7 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-26 16:23:22$	ZengOhm@gmail.com	*
+ *  	2012-8-26 18:57:09$	ZengOhm@gmail.com	*
  ************************************************/
 var $JT = new function (){
 	var _templateStore = new Array();
