@@ -2,7 +2,7 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-25 18:18:05$	ZengOhm@gmail.com	*
+ *  	2012-8-26 16:23:22$	ZengOhm@gmail.com	*
  ************************************************/
 function _JTemplate(){
 	this._templateStore = new Array();
@@ -50,8 +50,7 @@ function _JTemplate(){
 		return this._run();
 	};
 
-	this._run = function()
-	{
+	this._run = function(){
 		this._scanCodeIndex = 0;
 		this._scanCodeLength = this._scanCode.length;
 		this._scanCodeLine = 0;
@@ -59,10 +58,8 @@ function _JTemplate(){
 		this._codeState = 0;
 		var rString = '';
 		
-		while(this._readChar())
-		{
-			switch(this._codeState)
-			{
+		while(this._readChar()){
+			switch(this._codeState)	{
 				case 1:
 					rString+=this._readHTMLBlock();
 					break;
@@ -85,10 +82,11 @@ function _JTemplate(){
 			rWord += this._scanCodeChar;
 		}while(this._readChar());
 		throw ('JTemplate code should be end with "#>".');
-	}
+	};
 	
 	this._readHTMLBlock = function()
 	{
+		if(this._codeState==4)this._readChar();
 		var rString = '';
 		var lastWord = '';
 		do{
@@ -100,11 +98,8 @@ function _JTemplate(){
 		return rString;
 	};
 	
-	
-	this._readChar = function()
-	{
-		if(this._scanCodeIndex<this._scanCodeLength)
-		{
+	this._readChar = function(){
+		if(this._scanCodeIndex<this._scanCodeLength){
 			var lastChar = this._scanCodeChar;
 			this._scanCodeChar = this._scanCode.substr(this._scanCodeIndex,1);
 			
@@ -119,8 +114,7 @@ function _JTemplate(){
 			else if(this._codeState==4 && lastChar=='>')
 				this._codeState = 1;
 			
-			if(this._scanCodeChar == "\n")
-			{
+			if(this._scanCodeChar == "\n"){
 				this._scanCodeLine++;
 				this._scanCodeCol=0;
 			}
@@ -137,9 +131,7 @@ function _JTemplate(){
 				this._codeError('Code Condition Nested Error');			
 			
 			this._EOT = false;
-		}
-		else
-		{
+		}else{
 			this._scanCodeChar = '';
 			this._EOT = true;
 		}
@@ -167,13 +159,11 @@ function _JTemplate(){
 		};
 	};
 	
-	this._codeError = function (info)
-	{
+	this._codeError = function (info){
 		throw ('JTemplate Code Error in Template[' + this._scanTemplateName + '] line ' + this._scanCodeLine + ' char ' + this._scanCodeCol + ': ' + info + '.');
-	}
+	};
 
-	this._keyWord = function(kw)
-	{
+	this._keyWord = function(kw){
 	    var funName = 'this._keyWord_'+kw;
 	    if(typeof(eval(funName))=='function')
 	        return eval(funName+'();');
@@ -181,20 +171,22 @@ function _JTemplate(){
 	        this._codeError('Undefine key word :"' + kw + '".');
 	};
 	
-	this._eval = function(evalcode)
-	{
+	this._decodeVar = function(varCode){
+		return varCode.replace(/\$([a-zA-Z_]+[a-zA-Z_])*?/g,'this._dataList.$1');
+	};
+	
+	
+	this._eval = function(evalcode){
 		try {
-			var jsCode = evalcode.replace(/\$([a-zA-Z_]+[a-zA-Z_])*?/g,'this._dataList.$1');
+			var jsCode = this._decodeVar(evalcode);
 			return eval(jsCode);
 		}catch(e){
 			this._codeError('Unexpected code "' + evalcode + '"');
 		}
-	}
-	
+	};
 	
 	this._isJTemplateEnd_lastRunIndex = null;
-	this._isJTemplateEnd = function()
-	{
+	this._isJTemplateEnd = function(){
 		var nowPosition = this._tell();
 		if(this._isJTemplateEnd_lastRunIndex &&
 			this._isJTemplateEnd_lastRunIndex.scanCodeIndex == nowPosition.scanCodeIndex &&
@@ -204,29 +196,27 @@ function _JTemplate(){
 			this._readChar();
 			if(this._scanCodeChar!='>')
 				this._codeError('Unknow end of line "' + this._scanCodeChar + '"');
-			//this._readChar();
 			this._isJTemplateEnd_lastRunIndex = this._tell();
 			return true;
 		}
 		return false;
-	}
+	};
 	
-	this._readToNextJTemplate = function()
-	{
+	this._readToNextJTemplate = function(){
 		var rString = this._readJTemplate();
-		this._readChar();
 		rString+= this._readHTMLBlock();
 		return rString;
-	}
+	};
 	
-	this._skipThisBlock = function()
-	{
+	this._skipThisBlock = function(){
 		var nowCodeBlockNested = this._codeBlockNested;
 		while(nowCodeBlockNested<=this._codeBlockNested)this._readChar();
-		//while(!this._isJTemplateEnd())this._readChar();
-	}
+	};
 };
+var JTemplate = new _JTemplate();
+var $JT = function(a,b){return JTemplate.display(a,b);};
 
+/* Package */
 _JTemplate.prototype._keyWord_if = function(){
 	var enterCodeBlockNested = this._codeBlockNested;
 	var rWord = '';
@@ -250,9 +240,8 @@ _JTemplate.prototype._keyWord_if = function(){
 			rWord = "";
 		case 1:
 			while(!this._isJTemplateEnd())this._readChar();
-			this._readChar();
 			if(conditionFlag)
-				rString+=this._readHTMLBlock();			
+				rString+=this._readHTMLBlock();
 			else
 				this._skipThisBlock();
 			keywordIfRunState = 2;
@@ -272,7 +261,6 @@ _JTemplate.prototype._keyWord_if = function(){
 					keywordIfRunState = 0;
 				}else if(conditionFlag){
 					rString += this._keyWord(rWord);
-					this._readChar();
 					rString += this._readHTMLBlock();
 				}else{
 					this._skipThisBlock();
@@ -313,7 +301,6 @@ _JTemplate.prototype._keyWord_for = function(){
 					return '';
 				}
 				loopStartPosition = this._tell();
-				this._readChar();
 				rString += this._readHTMLBlock();
 				keywordForRunState = 1;
 				break;
@@ -323,14 +310,13 @@ _JTemplate.prototype._keyWord_for = function(){
 					this._eval(conditionArray[3]);
 					if(!this._eval(conditionArray[2]))return rString;
 					this._seek(loopStartPosition);
-					this._readChar();
 					rString += this._readHTMLBlock();
 				}else if(this._scanCodeChar!='}'){
 					rString += this._readToNextJTemplate();
 				}
 		}
 	}while(this._readChar());
-}
+};
 
 _JTemplate.prototype._keyWord_echo = function(){
 	var rWord = '';
@@ -339,7 +325,7 @@ _JTemplate.prototype._keyWord_echo = function(){
 		rWord+=this._scanCodeChar;
 	}while(this._readChar());
 	return this._eval(rWord);
-}
+};
 
 _JTemplate.prototype._keyWord_eval = function(){
 	var rWord = '';
@@ -349,7 +335,7 @@ _JTemplate.prototype._keyWord_eval = function(){
 	}while(this._readChar());
 	this._eval(rWord);
 	return "";
-}
+};
 
 _JTemplate.prototype._keyWord_while = function(){
 	var rString = '';
@@ -378,15 +364,10 @@ _JTemplate.prototype._keyWord_while = function(){
 				if(this._isJTemplateEnd()){		// <#}#>
 					if(!this._eval(conditionString))return rString;
 					this._seek(loopStartPosition);
-					this._readChar();
 					rString += this._readHTMLBlock();
 				}else if(this._scanCodeChar!='}'){
 					rString += this._readToNextJTemplate();
 				}
 		}
 	}while(this._readChar());
-}
-
-var JTemplate = new _JTemplate();
-var $JT = function(a,b){return JTemplate.display(a,b);};
-
+};
