@@ -2,7 +2,7 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-27 21:09:00$	ZengOhm@gmail.com	*
+ *  	2012-8-28 2:34:30$	ZengOhm@gmail.com	*
  ************************************************/
 var $JT = new function (){
 	var _templateStore = false;
@@ -24,7 +24,7 @@ var $JT = new function (){
 	 * 4	JTemplate to HTML border	-	When read '#' and '>' after '#'
 	 */
 	var _codeState = 0;
-	var _EOT = false;
+	//var _EOT = false;
 	
 	var init = function(){
 		var html = document.getElementsByTagName('html')[0].innerHTML;
@@ -120,12 +120,14 @@ var $JT = new function (){
 			if(_codeConditionNested<0)
 				_codeError('Code Condition Nested Error');			
 			
-			_EOT = false;
+			//_EOT = false;
+			return true;
 		}else{
 			_scanCodeChar = '';
-			_EOT = true;
+			//_EOT = true;
+			return false;
 		}
-		return !_EOT; 
+		//return !_EOT; 
 	};
 	
 	var _seek = function(position){
@@ -154,11 +156,15 @@ var $JT = new function (){
 	};
 
 	var _keyWord = function(kw){
-	    var funName = '_keyWord_'+kw;
-	    if(typeof(eval(funName))=='function')
-	        return eval(funName+'();');
-	    else
-	        _codeError('Undefine key word :"' + kw + '".');
+	    switch(kw)
+	    {
+	    	case 'if':return _keyWord_if();
+	    	case 'for':return _keyWord_for();
+	    	case 'while':return _keyWord_while();
+	    	case 'echo':return _keyWord_echo();
+	    	case 'eval':return _keyWord_eval();
+	    	default:_codeError('Undefine key word :"' + kw + '".');
+	    }
 	};
 	
 	var _decodeVar = function(varCode){
