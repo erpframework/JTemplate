@@ -2,10 +2,10 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-26 18:57:09$	ZengOhm@gmail.com	*
+ *  	2012-8-27 21:09:00$	ZengOhm@gmail.com	*
  ************************************************/
 var $JT = new function (){
-	var _templateStore = new Array();
+	var _templateStore = false;
 	var _dataList = null;
 	var _scanTemplateName = 0;
 	var _scanCode = '';
@@ -30,6 +30,7 @@ var $JT = new function (){
 		var html = document.getElementsByTagName('html')[0].innerHTML;
 		var reg = new RegExp("<!--\\[([\\w]*?)\\[([^\b]*?)\\]\\]-->", 'g');
 		var match = null;
+		_templateStore = new Array();
 		while (match = reg.exec(html)) {
 			if (match[1].length == 0) 
 				continue;
@@ -285,6 +286,7 @@ var $JT = new function (){
 					while(!_isJTemplateEnd())_readChar();
 					if(!_eval(conditionArray[2])){
 						_skipThisBlock();
+						while(!_isJTemplateEnd())_readChar();
 						return '';
 					}
 					loopStartPosition = _tell();
@@ -342,6 +344,7 @@ var $JT = new function (){
 					while(!_isJTemplateEnd())_readChar();
 					if(!_eval(conditionString)){
 						_skipThisBlock();
+						while(!_isJTemplateEnd())_readChar();
 						return '';
 					}
 					loopStartPosition = _tell();
@@ -360,7 +363,7 @@ var $JT = new function (){
 	};
 	
 	return function(templateName, dataList){
-		if (_templateStore.length == 0) 
+		if (!_templateStore) 
 			init();
 		_scanTemplateName = templateName;
 		_scanCode = _templateStore[templateName];
