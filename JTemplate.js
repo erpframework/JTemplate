@@ -2,14 +2,14 @@
  * 					JTemplate 					*
  * 					CMSPP.NET					*
  * 				   JTemplate.js					*
- *  	2012-8-31 15:48:42$	ZengOhm@gmail.com	*
+ *  	2012-9-2 5:23:37$	ZengOhm@gmail.com	*
  ************************************************/
 var $JT = new function (){
 	var _templateStore = false;
 	var _dataList = null;
 	var _scanTemplateName = 0;
 	var _scanCode = '';
-	var  _scanCodeIndex = 0;
+	var _scanCodeIndex = 0;
 	var _scanCodeChar = '';
 	var _scanCodeLength = 0;
 	var _scanCodeLine = 0;
@@ -84,7 +84,7 @@ var $JT = new function (){
 	};
 	
 	var _jsStringEncode = function(str){
-	    return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\n/ig,"\\\n");
+	    return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace('\r','').replace(/\n/ig,"\\\n");
 	};
 	
 	var _readChar = function(){
