@@ -84,7 +84,7 @@ var $JT = new function (){
 	};
 	
 	var _jsStringEncode = function(str){
-	    return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace('\r','').replace(/\n/ig,"\\\n");
+	    return str.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'\\"').replace(/\r/ig,'').replace(/\n/ig,"\\\n");
 	};
 	
 	var _readChar = function(){
