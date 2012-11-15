@@ -45,7 +45,7 @@ var $JT = new function (){
 		_scanCodeLine = 0;
 		_scanCodeCol = 0;
 		_codeState = 0;
-		var rString = 'var codeString = "";';
+		var rString = 'var codeString = "";try{';
 		
 		while(_readChar()){
 			switch(_codeState)	{
@@ -57,6 +57,7 @@ var $JT = new function (){
 					break;
 			}
 		}
+		rString += '}catch(e){console.log(e);}';
 		return eval(rString);
 	};
 	
