@@ -132,7 +132,7 @@ var $JT = new function (){
 	};
 
 	var _decodeVar = function(varCode){
-		return varCode.replace(/\$([a-zA-Z_]+[a-zA-Z_])*?/g,'_dataList.$1');
+		return varCode.replace(/\$([a-zA-Z_]+[a-zA-Z_])*?/g,'_dataList._$1');
 	};
 	
 	return function(templateName, dataList){
@@ -142,7 +142,13 @@ var $JT = new function (){
 		_scanCode = _templateStore[templateName];
 		if(!_scanCode)
 			throw('JTemplate cannot found Template named by ' + templateName);
-		_dataList = dataList == null ? {} : dataList;
+
+		_dataList = {};
+		if(dataList != null){
+			for(var i in dataList){
+				_dataList['_'+i]=dataList[i];
+			}
+		}
 		return _run();
 	};
 };
